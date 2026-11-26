@@ -1,0 +1,152 @@
+# Balboa GS510DZ + panel VL801D -> Home Assistant via ESPHome
+# Hårdvara: Wemos D1 mini (ESP8266) på MagnusPers kretskort
+#   D1 (GPIO5)  = klocka      (RJ45 stift 6)
+#   D2 (GPIO4)  = displaydata (RJ45 stift 5)
+#   D8 (GPIO15) = knappdata   (via optokopplare till RJ45 stift 3)
+
+substitutions:
+  name: spabad
+  friendly_name: Spabad
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp8266:
+  board: d1_mini            # byt till d1_mini_pro om du använder Pro-varianten
+
+external_components:
+  - source: github://pointlevel/balboa-gs-esphome@main
+    components: [balboa_gs]
+    refresh: 1h
+
+logger:
+  level: INFO               # sätt DEBUG för att se varje knapptryck
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none     # jämnare avbrottshantering och stabilare WiFi
+  ap:
+    ssid: "Spabad Fallback"
+    password: !secret fallback_password
+
+captive_portal:
+
+web_server:
+  port: 80
+
+balboa_gs:
+  id: spa
+  clock_pin: D1
+  data_pin: D2
+  button_pin: D8
+  button_repeat: 1          # öka till 2-3 om knapptryck ibland missas
+  probe_setpoint: true      # tryck Temp upp en gång efter start för att läsa måltemperaturen
+  setpoint_flag_bit: 29     # bit som visar att displayen visar måltemp, se README
+
+  water_temperature:
+    name: "Vattentemperatur"
+    filters:
+      - delta: 0.1
+  target_temperature:
+    name: "Inställd temperatur"
+  display:
+    name: "Display"
+  connected:
+    name: "Panelkontakt"
+  raw_bits:
+    name: "Råbitar 29-71"   # för att kartlägga t.ex. värmen; kan tas bort sen
+
+  pump1:
+    name: "Pump 1"
+  pump2:
+    name: "Pump 2"
+  blower:
+    name: "Blåsmaskin"
+  light:
+    name: "Belysning"
+  filtration:
+    name: "Filtrering"
+  filter1:
+    name: "Filtercykel 1"
+  filter2:
+    name: "Filtercykel 2"
+  standard_mode:
+    name: "Standardläge"
+  eco_mode:
+    name: "Ekoläge"
+
+number:
+  - platform: template
+    name: "Måltemperatur"
+    icon: mdi:thermometer-water
+    unit_of_measurement: "°C"
+    device_class: temperature
+    min_value: 26
+    max_value: 40
+    step: 0.5
+    mode: box
+    update_interval: 5s
+    lambda: |-
+      float t = id(spa).get_target_temperature();
+      if (std::isnan(t)) return {};
+      return t;
+    set_action:
+      - lambda: 'id(spa).set_target_temperature(x);'
+
+button:
+  - platform: template
+    name: "Belysning (tryck)"
+    icon: mdi:lightbulb
+    on_press:
+      - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_LIGHT);'
+  - platform: template
+    name: "Pump 1 (tryck)"
+    icon: mdi:pump
+    on_press:
+      - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_PUMP1);'
+  - platform: template
+    name: "Pump 2 (tryck)"
+    icon: mdi:pump
+    on_press:
+      - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_PUMP2);'
+  - platform: template
+    name: "Blåsmaskin (tryck)"
+    icon: mdi:weather-windy
+    on_press:
+      - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_BLOWER);'
+  - platform: template
+    name: "Mode (tryck)"
+    icon: mdi:swap-horizontal
+    entity_category: config
+    on_press:
+      - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_MODE);'
+  - platform: template
+    name: "Temp upp (tryck)"
+    entity_category: config
+    on_press:
+      - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_TEMP_UP);'
+  - platform: template
+    name: "Temp ner (tryck)"
+    entity_category: config
+    on_press:
+      - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_TEMP_DOWN);'
+  - platform: restart
+    name: "Starta om"
+    entity_category: config
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi-signal"
+    update_interval: 60s
+  - platform: uptime
+    name: "Drifttid"
