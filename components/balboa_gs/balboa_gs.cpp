@@ -145,6 +145,86 @@ void BalboaGS::loop() {
 
   this->check_water_candidate_();
   this->handle_temperature_steps_();
+  this->handle_mode_change_();
+}
+
+static const char *const MODE_NAMES[] = {"Standard", "Economy", "Sleep"};
+
+int8_t BalboaGS::current_mode_() const {
+  if (!this->connected_ || !this->mode_known_)
+    return -1;
+  if (this->std_mode_flag_ && !this->eco_mode_flag_)
+    return 0;
+  if (this->eco_mode_flag_ && !this->std_mode_flag_)
+    return 1;
+  if (!this->std_mode_flag_ && !this->eco_mode_flag_)
+    return 2;
+  return -1;
+}
+
+std::string BalboaGS::get_heat_mode() const {
+  const int8_t m = this->current_mode_();
+  return m < 0 ? std::string() : std::string(MODE_NAMES[m]);
+}
+
+void BalboaGS::set_heat_mode(const std::string &mode) {
+  for (int8_t i = 0; i < 3; i++) {
+    if (mode == MODE_NAMES[i]) {
+      this->mode_target_ = i;
+      this->mode_attempts_ = 0;
+      ESP_LOGI(TAG, "Byter värmeläge till %s", MODE_NAMES[i]);
+      return;
+    }
+  }
+  ESP_LOGW(TAG, "Okänt värmeläge: %s", mode.c_str());
+}
+
+void BalboaGS::handle_mode_change_() {
+  if (this->mode_target_ < 0 || !this->connected_)
+    return;
+  const uint32_t now = millis();
+
+  switch (this->mode_step_) {
+    case MODE_IDLE: {
+      const int8_t cur = this->current_mode_();
+      if (cur == this->mode_target_) {
+        ESP_LOGI(TAG, "Värmeläge %s klart", MODE_NAMES[cur]);
+        this->mode_target_ = -1;
+        return;
+      }
+      if (this->mode_attempts_ >= MODE_MAX_ATTEMPTS) {
+        ESP_LOGW(TAG, "Kunde inte byta värmeläge efter %u försök", this->mode_attempts_);
+        this->mode_target_ = -1;
+        return;
+      }
+      // Vänta tills andra knapptryck är klara
+      if (this->store_.pending_button != BTN_NONE || this->temp_presses_left_ > 0)
+        return;
+      if (this->in_temp_menu_()) {
+        this->press_button(BTN_MODE);
+        this->mode_step_ = MODE_PROG_SENT;
+        this->mode_attempts_++;
+      } else {
+        this->press_button(BTN_TEMP_UP);  // väcker panelen, ändrar inte temperaturen
+        this->mode_step_ = MODE_WAKE_SENT;
+      }
+      this->mode_step_ms_ = now;
+      break;
+    }
+    case MODE_WAKE_SENT:
+      if (now - this->mode_step_ms_ >= MODE_WAKE_DELAY_MS && this->store_.pending_button == BTN_NONE) {
+        this->press_button(BTN_MODE);
+        this->mode_step_ = MODE_PROG_SENT;
+        this->mode_step_ms_ = now;
+        this->mode_attempts_++;
+      }
+      break;
+    case MODE_PROG_SENT:
+      // Låt panelen lämna menyn innan läget kontrolleras
+      if (now - this->mode_step_ms_ >= MODE_SETTLE_MS)
+        this->mode_step_ = MODE_IDLE;
+      break;
+  }
 }
 
 void BalboaGS::check_water_candidate_() {
@@ -269,6 +349,11 @@ void BalboaGS::decode_frame_(const uint8_t *bits) {
   const bool mode_prog_ok = bits[BIT_MODE_PROG] != 0;
   const bool temp_menu = this->setpoint_flag_bit_ > 0 && bits[this->setpoint_flag_bit_] != 0;
   this->temp_menu_flag_ = temp_menu && mode_prog_ok;
+  if (mode_prog_ok && !time_menu) {
+    this->std_mode_flag_ = bits[BIT_STANDARD] != 0;
+    this->eco_mode_flag_ = bits[BIT_ECONOMY] != 0;
+    this->mode_known_ = true;
+  }
 
   if (time_menu && !blank) {
     display = {c1, c2, ':', c3, c4};

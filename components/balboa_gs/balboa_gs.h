@@ -19,7 +19,9 @@ static const uint8_t TOTAL_BITS = 75;
 static const uint8_t BUFFER_SIZE = 76;
 static const uint32_t NEW_CYCLE_US = 5000;  // tystnad som markerar ny cykel
 static const uint8_t BIT_TIME_MENU = 30;
-static const uint8_t BIT_MODE_PROG = 65;  // 1 = inte i Mode/Prog-menyn
+static const uint8_t BIT_MODE_PROG = 65;
+static const uint8_t BIT_STANDARD = 59;
+static const uint8_t BIT_ECONOMY = 60;  // 1 = inte i Mode/Prog-menyn
 
 // Knappkoder, bit 72 är mest signifikant (från Shuraxxx-forken).
 enum ButtonCode : uint8_t {
@@ -86,6 +88,10 @@ class BalboaGS : public Component {
   // Ändrar inställd temperatur ett steg (0,5 °C). Skickar ett extra
   // "väcktryck" först om panelen inte redan är i inställningsläget.
   void step_temperature(int8_t direction);
+
+  // Värmeläge: "Standard", "Economy" eller "Sleep" (tom sträng om okänt)
+  std::string get_heat_mode() const;
+  void set_heat_mode(const std::string &mode);
   float get_target_temperature() const { return this->target_temperature_; }
   float get_water_temperature() const { return this->water_temperature_; }
 
@@ -124,6 +130,18 @@ class BalboaGS : public Component {
 
   // Ändring av måltemperatur via knapptryck
   bool in_temp_menu_() const;
+  void handle_mode_change_();
+  int8_t current_mode_() const;  // 0 Standard, 1 Economy, 2 Sleep, -1 okänt
+  bool std_mode_flag_{false};
+  bool eco_mode_flag_{false};
+  bool mode_known_{false};
+  int8_t mode_target_{-1};
+  uint8_t mode_attempts_{0};
+  enum ModeStep : uint8_t { MODE_IDLE, MODE_WAKE_SENT, MODE_PROG_SENT } mode_step_{MODE_IDLE};
+  uint32_t mode_step_ms_{0};
+  static const uint32_t MODE_WAKE_DELAY_MS = 700;
+  static const uint32_t MODE_SETTLE_MS = 4500;  // panelen lämnar menyn efter ca 3 s
+  static const uint8_t MODE_MAX_ATTEMPTS = 4;
   bool temp_menu_flag_{false};
   int8_t temp_direction_{0};  // -1 ner, +1 upp
   uint8_t temp_presses_left_{0};

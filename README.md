@@ -42,6 +42,12 @@ Flasha innan kortet sitter i spabadet, och koppla inte USB och RJ45 samtidigt.
 - **Knapptryck missas ibland:** sätt `button_repeat: 2` eller `3`.
 - **Panelkontakt växlar av och på:** troligen svag 5 V eller dålig kontakt i RJ45.
 
+## Värmeläge
+Väljaren *Värmeläge* (Standard, Economy, Sleep) trycker Temp upp (väcker panelen,
+ändrar inte temperaturen) och sedan Mode/Prog, väntar tills panelen lämnat menyn
+och kontrollerar läget mot bit 59/60. Det upprepas tills läget stämmer, högst 4 gånger.
+Sleep tolkas som att varken standard- eller ekobiten är satt.
+
 ## Bitkarta (VL801D)
 Enligt [micke85/Balboa-GS510DZ-with-panel-VL801D](https://github.com/micke85/Balboa-GS510DZ-with-panel-VL801D):
 30 tidsmeny · 36/37 filter 1/2 · 39 värme · 40 inställd temp visas · 42 blåsmaskin ·

@@ -105,6 +105,19 @@ number:
     set_action:
       - lambda: 'id(spa).set_target_temperature(x);'
 
+select:
+  - platform: template
+    name: "Värmeläge"
+    icon: mdi:thermostat
+    options: ["Standard", "Economy", "Sleep"]
+    update_interval: 2s
+    lambda: |-
+      std::string m = id(spa).get_heat_mode();
+      if (m.empty()) return {};
+      return m;
+    set_action:
+      - lambda: 'id(spa).set_heat_mode(x);'
+
 button:
   - platform: template
     name: "Belysning (tryck)"
