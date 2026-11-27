@@ -51,7 +51,7 @@ balboa_gs:
   button_pin: D8
   button_repeat: 1          # öka till 2-3 om knapptryck ibland missas
   probe_setpoint: true      # tryck Temp upp en gång efter start för att läsa måltemperaturen
-  setpoint_flag_bit: 29     # bit som visar att displayen visar måltemp, se README
+  setpoint_flag_bit: 40     # "TempMenu": displayen visar inställd temperatur
 
   water_temperature:
     name: "Vattentemperatur"
@@ -66,6 +66,8 @@ balboa_gs:
   raw_bits:
     name: "Råbitar 29-71"   # för att kartlägga t.ex. värmen; kan tas bort sen
 
+  heater:
+    name: "Värme"
   pump1:
     name: "Pump 1"
   pump2:
@@ -135,6 +137,11 @@ button:
     entity_category: config
     on_press:
       - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_TEMP_UP);'
+  - platform: template
+    name: "Time (tryck)"
+    entity_category: config
+    on_press:
+      - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_TIME);'
   - platform: template
     name: "Temp ner (tryck)"
     entity_category: config

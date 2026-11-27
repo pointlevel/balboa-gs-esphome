@@ -12,6 +12,7 @@ from esphome.components import binary_sensor, sensor, text_sensor
 from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_CONNECTIVITY,
+    DEVICE_CLASS_HEAT,
     DEVICE_CLASS_RUNNING,
     DEVICE_CLASS_TEMPERATURE,
     ENTITY_CATEGORY_DIAGNOSTIC,
@@ -36,11 +37,15 @@ CONF_RAW_BITS = "raw_bits"
 CONF_CONNECTED = "connected"
 
 # Binärsensorer: nyckel -> bitposition i displayramen (VL801D, Shuraxxx-mappning)
+# Bitkarta enligt micke85/Balboa-GS510DZ-with-panel-VL801D
 BINARY_BITS = {
+    "time_menu": 30,
     "filter1": 36,
     "filter2": 37,
+    "heater": 39,
+    "temp_menu": 40,
     "blower": 42,
-    "filtration": 44,
+    "filtration": 43,
     "light": 47,
     "pump1": 48,
     "pump2": 49,
@@ -57,6 +62,8 @@ for key in BINARY_BITS:
     kwargs = {}
     if key in RUNNING_KEYS:
         kwargs["device_class"] = DEVICE_CLASS_RUNNING
+    elif key == "heater":
+        kwargs["device_class"] = DEVICE_CLASS_HEAT
     _binary_schemas[cv.Optional(key)] = binary_sensor.binary_sensor_schema(**kwargs)
 
 CONFIG_SCHEMA = (
@@ -68,7 +75,7 @@ CONFIG_SCHEMA = (
             cv.Required(CONF_BUTTON_PIN): pins.internal_gpio_output_pin_schema,
             cv.Optional(CONF_BUTTON_REPEAT, default=1): cv.int_range(min=1, max=20),
             cv.Optional(CONF_PROBE_SETPOINT, default=True): cv.boolean,
-            cv.Optional(CONF_SETPOINT_FLAG_BIT, default=29): cv.int_range(min=1, max=71),
+            cv.Optional(CONF_SETPOINT_FLAG_BIT, default=40): cv.int_range(min=0, max=71),
             cv.Optional(CONF_WATER_TEMPERATURE): sensor.sensor_schema(
                 unit_of_measurement=UNIT_CELSIUS,
                 accuracy_decimals=1,

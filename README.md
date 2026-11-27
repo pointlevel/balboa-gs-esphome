@@ -34,14 +34,18 @@ Flasha innan kortet sitter i spabadet, och koppla inte USB och RJ45 samtidigt.
 
 ## Om något inte stämmer
 - **Vattentemperaturen hoppar till måltemperaturen när du trycker Temp på panelen:**
-  biten för inställningsläge är fel. Titta på *Råbitar 29-71* medan panelen
-  blinkar med måltemperaturen och se vilken bit som ändras. Prova
-  `setpoint_flag_bit: 40` (som Shuraxxx-koden i praktiken använder).
+  biten för inställningsläge stämmer inte för din panel. Standard är bit 40
+  ("TempMenu") enligt micke85:s kartläggning. Titta på *Råbitar 29-71* medan
+  panelen blinkar med måltemperaturen och se vilken bit som ändras. Som extra
+  skydd räknas ett värde som syns före och efter en blinkning alltid som
+  inställd temperatur, och vattentemperaturen godtas först efter 3 s utan blink.
 - **Knapptryck missas ibland:** sätt `button_repeat: 2` eller `3`.
-- **Värmen saknas:** den har ingen känd bit än. Titta på *Råbitar 29-71* när
-  värmen går igång, notera positionen (första tecknet = bit 29) och lägg till
-  en binärsensor i komponenten.
 - **Panelkontakt växlar av och på:** troligen svag 5 V eller dålig kontakt i RJ45.
 
+## Bitkarta (VL801D)
+Enligt [micke85/Balboa-GS510DZ-with-panel-VL801D](https://github.com/micke85/Balboa-GS510DZ-with-panel-VL801D):
+30 tidsmeny · 36/37 filter 1/2 · 39 värme · 40 inställd temp visas · 42 blåsmaskin ·
+43 filtrering · 47 ljus · 48/49 pump 1/2 · 59 standardläge · 60 ekoläge · 65 Mode/Prog (1 = ej i menyn)
+
 ## Knappkoder (bit 72-75)
-Mode 1000 · Temp upp 1110 · Temp ner 1111 · Ljus 1011 · Pump 1 1001 · Pump 2 1010 · Blåsmaskin 1101
+Mode 1000 · Pump 1 1001 · Pump 2 1010 · Ljus 1011 · Time 1100 · Blåsmaskin 1101 · Temp upp 1110 · Temp ner 1111

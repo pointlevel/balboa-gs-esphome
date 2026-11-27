@@ -18,6 +18,8 @@ static const uint8_t DISPLAY_BITS = 71;
 static const uint8_t TOTAL_BITS = 75;
 static const uint8_t BUFFER_SIZE = 76;
 static const uint32_t NEW_CYCLE_US = 5000;  // tystnad som markerar ny cykel
+static const uint8_t BIT_TIME_MENU = 30;
+static const uint8_t BIT_MODE_PROG = 65;  // 1 = inte i Mode/Prog-menyn
 
 // Knappkoder, bit 72 är mest signifikant (från Shuraxxx-forken).
 enum ButtonCode : uint8_t {
@@ -29,6 +31,7 @@ enum ButtonCode : uint8_t {
   BTN_PUMP1 = 0b1001,
   BTN_PUMP2 = 0b1010,
   BTN_BLOWER = 0b1101,
+  BTN_TIME = 0b1100,
 };
 
 struct BalboaGSStore {
@@ -93,7 +96,7 @@ class BalboaGS : public Component {
   InternalGPIOPin *button_pin_{nullptr};
   uint8_t button_repeat_{1};
   bool probe_setpoint_{true};
-  uint8_t setpoint_flag_bit_{29};
+  uint8_t setpoint_flag_bit_{40};  // "TempMenu", 0 = av
 
   BalboaGSStore store_{};
 
@@ -124,6 +127,25 @@ class BalboaGS : public Component {
 
   uint32_t first_frame_ms_{0};
   bool setpoint_probed_{false};
+
+  // Avgör om displayen visar inställd temperatur:
+  //  - panelen blinkar i inställningsläget: värde, släckt, samma värde = inställd temp
+  //  - vattentemperaturen godtas först när den visats stadigt i 4 s utan blink
+  //    och inte direkt efter egna Temp-tryck
+  void check_water_candidate_();
+  void publish_target_(float t);
+  uint32_t last_blank_ms_{0};
+  uint32_t last_temp_button_ms_{0};
+  bool candidate_valid_{false};
+  bool prev_was_blank_{false};
+  bool prev_was_temp_{false};
+  float last_value_{NAN};
+  float value_before_blank_{NAN};
+  float candidate_value_{NAN};
+  uint32_t candidate_first_ms_{0};
+  static const uint32_t BLINK_WINDOW_MS = 1500;
+  static const uint32_t OWN_PRESS_WINDOW_MS = 4000;  // vattentemp godtas inte direkt efter egna tryck
+  static const uint32_t WATER_CONFIRM_MS = 3000;
 };
 
 }  // namespace balboa_gs

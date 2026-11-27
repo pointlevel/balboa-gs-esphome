@@ -143,7 +143,37 @@ void BalboaGS::loop() {
     this->press_button(BTN_TEMP_UP);
   }
 
+  this->check_water_candidate_();
   this->handle_temperature_steps_();
+}
+
+void BalboaGS::check_water_candidate_() {
+  if (!this->candidate_valid_)
+    return;
+  const uint32_t now = millis();
+  if (now - this->candidate_first_ms_ < WATER_CONFIRM_MS)
+    return;
+  if (this->last_blank_ms_ != 0 && now - this->last_blank_ms_ < WATER_CONFIRM_MS)
+    return;
+  if (this->last_temp_button_ms_ != 0 && now - this->last_temp_button_ms_ < OWN_PRESS_WINDOW_MS)
+    return;
+  const float t = this->candidate_value_;
+  this->candidate_valid_ = false;
+  if (t != this->water_temperature_) {
+    this->water_temperature_ = t;
+    ESP_LOGD(TAG, "Vattentemperatur %.1f", t);
+    if (this->water_temperature_sensor_ != nullptr)
+      this->water_temperature_sensor_->publish_state(t);
+  }
+}
+
+void BalboaGS::publish_target_(float t) {
+  if (t == this->target_temperature_)
+    return;
+  this->target_temperature_ = t;
+  ESP_LOGD(TAG, "Inställd temperatur %.1f", t);
+  if (this->target_temperature_sensor_ != nullptr)
+    this->target_temperature_sensor_->publish_state(t);
 }
 
 void BalboaGS::press_button(uint8_t code) {
@@ -152,6 +182,8 @@ void BalboaGS::press_button(uint8_t code) {
     return;
   }
   ESP_LOGD(TAG, "Knapptryck 0x%X", code);
+  if (code == BTN_TEMP_UP || code == BTN_TEMP_DOWN)
+    this->last_temp_button_ms_ = millis();
   this->store_.repeat_left = this->button_repeat_;
   this->store_.pending_button = code;
 }
@@ -198,28 +230,58 @@ void BalboaGS::decode_frame_(const uint8_t *bits) {
   const char c3 = lookup_char_(seg[1]);
   const char c4 = lookup_char_(seg[0]);
 
-  const bool setpoint_mode = bits[this->setpoint_flag_bit_] != 0;
+  const uint32_t now = millis();
+  const bool blank = (seg[0] | seg[1] | seg[2] | seg[3]) == 0;
   std::string display;
 
-  if (seg[0] == 0) {
-    display = {c1, c2, c3, c4};
+  if (blank) {
+    // Spara värdet som visades precis före blinket
+    this->value_before_blank_ = this->prev_was_temp_ ? this->last_value_ : NAN;
+    this->last_blank_ms_ = now;
+    this->prev_was_blank_ = true;
+    this->prev_was_temp_ = false;
+    this->candidate_valid_ = false;
+  }
+
+  const bool time_menu = bits[BIT_TIME_MENU] != 0;
+  const bool mode_prog_ok = bits[BIT_MODE_PROG] != 0;
+  const bool temp_menu = this->setpoint_flag_bit_ > 0 && bits[this->setpoint_flag_bit_] != 0;
+
+  if (time_menu && !blank) {
+    display = {c1, c2, ':', c3, c4};
+    this->prev_was_blank_ = false;
+    this->prev_was_temp_ = false;
+    this->candidate_valid_ = false;
+  } else if (seg[0] == 0) {
+    if (!blank) {
+      display = {c1, c2, c3, c4};
+      this->prev_was_blank_ = false;
+      this->prev_was_temp_ = false;
+    }
   } else {
     display = {c1, c2, '.', c3, c4};
     const bool ok = (c1 == ' ' || isdigit(c1)) && isdigit(c2) && isdigit(c3);
     if (ok) {
       const float t = 10.0f * (c1 == ' ' ? 0 : c1 - '0') + (c2 - '0') + 0.1f * (c3 - '0');
-      if (setpoint_mode) {
-        if (t != this->target_temperature_) {
-          this->target_temperature_ = t;
-          if (this->target_temperature_sensor_ != nullptr)
-            this->target_temperature_sensor_->publish_state(t);
-        }
-      } else if (t != this->water_temperature_) {
-        this->water_temperature_ = t;
-        if (this->water_temperature_sensor_ != nullptr)
-          this->water_temperature_sensor_->publish_state(t);
+      // Samma värde före och efter ett blink = inställd temperatur (extra skydd)
+      const bool blink_confirmed = this->prev_was_blank_ && t == this->value_before_blank_ &&
+                                   now - this->last_blank_ms_ < BLINK_WINDOW_MS;
+      if (!mode_prog_ok || t < 10.0f) {
+        this->candidate_valid_ = false;  // menyvärde, inte en temperatur
+      } else if (temp_menu || blink_confirmed) {
+        this->publish_target_(t);
+        this->candidate_valid_ = false;
+      } else if (!this->candidate_valid_ || t != this->candidate_value_) {
+        this->candidate_value_ = t;
+        this->candidate_first_ms_ = now;
+        this->candidate_valid_ = true;
       }
+      this->last_value_ = t;
+      this->prev_was_temp_ = true;
+    } else {
+      this->prev_was_temp_ = false;
     }
+    this->prev_was_blank_ = false;
   }
 
   // Tom display (blinkar) publiceras inte
