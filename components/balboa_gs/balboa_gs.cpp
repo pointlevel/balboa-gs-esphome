@@ -199,11 +199,33 @@ void BalboaGS::set_target_temperature(float temperature) {
   if (fabsf(diff) < 0.25f)
     return;
   this->temp_direction_ = diff > 0 ? 1 : -1;
-  // Första trycket öppnar inställningsläget, varje följande ändrar 0,5 °C
-  this->temp_presses_left_ = 1 + (uint8_t) lroundf(fabsf(diff) * 2.0f);
+  // Ett väcktryck om panelen inte redan är i inställningsläget, sedan ett tryck per 0,5 °C
+  this->temp_presses_left_ = (this->in_temp_menu_() ? 0 : 1) + (uint8_t) lroundf(fabsf(diff) * 2.0f);
   this->last_temp_press_ms_ = 0;
   ESP_LOGI(TAG, "Ändrar måltemperatur %.1f -> %.1f (%u tryck)", this->target_temperature_, temperature,
            this->temp_presses_left_);
+}
+
+bool BalboaGS::in_temp_menu_() const {
+  // Panelen lämnar inställningsläget ca 3 s efter senaste trycket
+  const bool recent_press = this->last_temp_button_ms_ != 0 && millis() - this->last_temp_button_ms_ < 2000;
+  return this->temp_menu_flag_ || recent_press;
+}
+
+void BalboaGS::step_temperature(int8_t direction) {
+  if (!this->connected_) {
+    ESP_LOGW(TAG, "Ingen kontakt med panelen, knapptryck ignoreras");
+    return;
+  }
+  const bool in_menu = this->in_temp_menu_();
+  if (this->temp_presses_left_ > 0 && this->temp_direction_ == direction) {
+    this->temp_presses_left_++;  // flera snabba tryck i rad läggs på kön
+  } else {
+    this->temp_direction_ = direction > 0 ? 1 : -1;
+    this->temp_presses_left_ = in_menu ? 1 : 2;
+    this->last_temp_press_ms_ = 0;
+  }
+  ESP_LOGD(TAG, "Temp %s, %s", direction > 0 ? "upp" : "ner", in_menu ? "redan i inställningsläge" : "väcker panelen först");
 }
 
 void BalboaGS::handle_temperature_steps_() {
@@ -246,6 +268,7 @@ void BalboaGS::decode_frame_(const uint8_t *bits) {
   const bool time_menu = bits[BIT_TIME_MENU] != 0;
   const bool mode_prog_ok = bits[BIT_MODE_PROG] != 0;
   const bool temp_menu = this->setpoint_flag_bit_ > 0 && bits[this->setpoint_flag_bit_] != 0;
+  this->temp_menu_flag_ = temp_menu && mode_prog_ok;
 
   if (time_menu && !blank) {
     display = {c1, c2, ':', c3, c4};

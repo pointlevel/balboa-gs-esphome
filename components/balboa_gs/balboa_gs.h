@@ -83,6 +83,9 @@ class BalboaGS : public Component {
   // Används från YAML (template-knappar och template-number)
   void press_button(uint8_t code);
   void set_target_temperature(float temperature);
+  // Ändrar inställd temperatur ett steg (0,5 °C). Skickar ett extra
+  // "väcktryck" först om panelen inte redan är i inställningsläget.
+  void step_temperature(int8_t direction);
   float get_target_temperature() const { return this->target_temperature_; }
   float get_water_temperature() const { return this->water_temperature_; }
 
@@ -120,6 +123,8 @@ class BalboaGS : public Component {
   bool connected_{false};
 
   // Ändring av måltemperatur via knapptryck
+  bool in_temp_menu_() const;
+  bool temp_menu_flag_{false};
   int8_t temp_direction_{0};  // -1 ner, +1 upp
   uint8_t temp_presses_left_{0};
   uint32_t last_temp_press_ms_{0};

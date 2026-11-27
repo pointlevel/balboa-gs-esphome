@@ -133,20 +133,20 @@ button:
     on_press:
       - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_MODE);'
   - platform: template
-    name: "Temp upp (tryck)"
-    entity_category: config
+    name: "Temp upp"
+    icon: mdi:thermometer-plus
     on_press:
-      - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_TEMP_UP);'
+      - lambda: 'id(spa).step_temperature(1);'
   - platform: template
     name: "Time (tryck)"
     entity_category: config
     on_press:
       - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_TIME);'
   - platform: template
-    name: "Temp ner (tryck)"
-    entity_category: config
+    name: "Temp ner"
+    icon: mdi:thermometer-minus
     on_press:
-      - lambda: 'id(spa).press_button(esphome::balboa_gs::BTN_TEMP_DOWN);'
+      - lambda: 'id(spa).step_temperature(-1);'
   - platform: restart
     name: "Starta om"
     entity_category: config
