@@ -7,6 +7,13 @@
 substitutions:
   name: spabad
   friendly_name: Spabad
+  # Uppskattade effekter i watt, justera mot märkskyltarna
+  heater_w: "2750"   # 3,0 kW vid 240 V blir ca 2,75 kW vid 230 V
+  circ_w: "100"      # cirkulationspump, antas gå hela tiden
+  pump1_w: "1500"
+  pump2_w: "1500"
+  blower_w: "700"
+  base_w: "10"       # elektronik, ozonator, belysning
 
 esphome:
   name: ${name}
@@ -63,17 +70,22 @@ balboa_gs:
     name: "Display"
   connected:
     name: "Panelkontakt"
+    id: spa_connected
   raw_bits:
     name: "Råbitar 29-71"   # för att kartlägga t.ex. värmen; kan tas bort sen
 
   heater:
     name: "Värme"
+    id: spa_heater
   pump1:
     name: "Pump 1"
+    id: spa_pump1
   pump2:
     name: "Pump 2"
+    id: spa_pump2
   blower:
     name: "Blåsmaskin"
+    id: spa_blower
   light:
     name: "Belysning"
   filtration:
@@ -165,6 +177,32 @@ button:
     entity_category: config
 
 sensor:
+  - platform: template
+    name: "Effekt (uppskattad)"
+    id: spa_power
+    unit_of_measurement: W
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: |-
+      if (!id(spa_connected).state) return {};
+      float w = ${circ_w} + ${base_w};
+      if (id(spa_heater).state) w += ${heater_w};
+      if (id(spa_pump1).state) w += ${pump1_w};
+      if (id(spa_pump2).state) w += ${pump2_w};
+      if (id(spa_blower).state) w += ${blower_w};
+      return w;
+  - platform: integration
+    name: "Energi (uppskattad)"
+    sensor: spa_power
+    time_unit: h
+    unit_of_measurement: kWh
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.001
   - platform: wifi_signal
     name: "WiFi-signal"
     update_interval: 60s
