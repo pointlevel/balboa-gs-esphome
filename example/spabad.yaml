@@ -1,34 +1,34 @@
-# Balboa GS510DZ + panel VL801D -> Home Assistant via ESPHome
-# Hårdvara: Wemos D1 mini (ESP8266) på MagnusPers kretskort
-#   D1 (GPIO5)  = klocka      (RJ45 stift 6)
-#   D2 (GPIO4)  = displaydata (RJ45 stift 5)
-#   D8 (GPIO15) = knappdata   (via optokopplare till RJ45 stift 3)
+# Balboa GS510DZ + VL801D panel -> Home Assistant via ESPHome
+# Hardware: Wemos D1 mini (ESP8266) on MagnusPer's interface board
+#   D1 (GPIO5)  = clock        (RJ45 pin 6)
+#   D2 (GPIO4)  = display data (RJ45 pin 5)
+#   D8 (GPIO15) = button data  (via optocoupler to RJ45 pin 3)
+# Entity names are in Swedish; rename as you like.
 
 substitutions:
   name: spabad
   friendly_name: Spabad
-  # Uppskattade effekter i watt, justera mot märkskyltarna
-  heater_w: "2750"   # 3,0 kW vid 240 V blir ca 2,75 kW vid 230 V
-  circ_w: "100"      # cirkulationspump, antas gå hela tiden
+  # Estimated power draw in watts; adjust to your rating plates
+  heater_w: "2750"   # 3.0 kW at 240 V is about 2.75 kW at 230 V
+  circ_w: "100"      # circulation pump, assumed always on
   pump1_w: "1500"
   pump2_w: "1500"
   blower_w: "700"
-  base_w: "10"       # elektronik, ozonator, belysning
+  base_w: "10"       # electronics, ozonator, light
 
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
 
 esp8266:
-  board: d1_mini            # byt till d1_mini_pro om du använder Pro-varianten
+  board: d1_mini            # use d1_mini_pro for the Pro version
 
 external_components:
-  - source: github://pointlevel/balboa-gs-esphome@main
+  - source: github://pointlevel/balboa-gs-esphome@v0.1.0
     components: [balboa_gs]
-    refresh: 1h
 
 logger:
-  level: INFO               # sätt DEBUG för att se varje knapptryck
+  level: INFO               # DEBUG shows every button press
 
 api:
   encryption:
@@ -41,7 +41,7 @@ ota:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
-  power_save_mode: none     # jämnare avbrottshantering och stabilare WiFi
+  power_save_mode: none     # steadier interrupt timing and Wi-Fi
   ap:
     ssid: "Spabad Fallback"
     password: !secret fallback_password
@@ -56,9 +56,9 @@ balboa_gs:
   clock_pin: D1
   data_pin: D2
   button_pin: D8
-  button_repeat: 1          # öka till 2-3 om knapptryck ibland missas
-  probe_setpoint: true      # tryck Temp upp en gång efter start för att läsa måltemperaturen
-  setpoint_flag_bit: 40     # "TempMenu": displayen visar inställd temperatur
+  button_repeat: 1          # raise to 2-3 if presses are missed
+  probe_setpoint: true      # press Temp up once after start to read the set point
+  setpoint_flag_bit: 40     # "TempMenu": display shows the set point
 
   water_temperature:
     name: "Vattentemperatur"
@@ -72,7 +72,7 @@ balboa_gs:
     name: "Panelkontakt"
     id: spa_connected
   raw_bits:
-    name: "Råbitar 29-71"   # för att kartlägga t.ex. värmen; kan tas bort sen
+    name: "Råbitar 29-71"   # diagnostics for mapping unknown bits
 
   heater:
     name: "Värme"

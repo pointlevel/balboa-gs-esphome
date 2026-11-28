@@ -20,7 +20,7 @@ from esphome.const import (
     UNIT_CELSIUS,
 )
 
-CODEOWNERS = []
+CODEOWNERS = ["@pointlevel"]
 AUTO_LOAD = ["sensor", "binary_sensor", "text_sensor"]
 
 CONF_CLOCK_PIN = "clock_pin"
